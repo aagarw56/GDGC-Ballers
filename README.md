@@ -73,20 +73,22 @@ export default defineConfig([
 ```
 
 # Dependencies for Vision Model
-CLIP Model & Pytorch Install
+Tesseract OCR Install
 First, install git (https://git-scm.com/install/) to download CLIP package
-Then, install PyTorch (https://pytorch.org/get-started/locally/) and torchvision, as well as small additional dependencies, and then install this repo as a Python package. On a CUDA GPU machine, the following will do the trick:
-```py
-$ conda install --yes -c pytorch pytorch=1.7.1 torchvision cudatoolkit=11.0
-$ pip install ftfy regex tqdm
-$ pip install git+https://github.com/openai/CLIP.git
-```
 Install Tesseract package at https://github.com/UB-Mannheim/tesseract/wiki and add file location to PATH (Windows). 
 Within vision model, change this function to file location:
 ```py
 def load_ocr_path():
     TESSERACT_PATH = r"tesseract file location
 ```
-Also pip install these dependencies:
+pip install these dependencies:
 ```py
 pip install torch torchvision pytesseract tesseract pillow requests matplotlib
+```
+CLIP and Pytorch Install
+Then, install PyTorch (https://pytorch.org/get-started/locally/) and torchvision, as well as small additional dependencies, and then install this repo as a Python package. On a CUDA GPU machine, the following will do the trick:
+```py
+$ conda install --yes -c pytorch pytorch=1.7.1 torchvision cudatoolkit=11.0
+$ pip install ftfy regex tqdm
+$ pip install git+https://github.com/openai/CLIP.git
+```
