@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #f5f5f5;
+}
+
+.container{
+  width: 340px;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.premium{
+  background: #ffa44e;
+  border-radius: 20px;
+}
+
+.card{
+  background: white;
+  border-radius: 14px;
+}
+
+.progress{
+  height: 6px;
+  background: #eee;
+}
+
+.progress-fill{
+  width: 84%;
+  background: orange;
+}
