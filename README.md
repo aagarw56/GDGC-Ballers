@@ -78,7 +78,7 @@ Install Tesseract package at https://github.com/UB-Mannheim/tesseract/wiki and a
 Within vision model, change this function to file location:
 ```py
 def load_ocr_path():
-    TESSERACT_PATH = r"tesseract file location
+    TESSERACT_PATH = r"tesseract file location"
 ```
 pip install these dependencies:
 ```py
