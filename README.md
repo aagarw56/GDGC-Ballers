@@ -82,7 +82,7 @@ def load_ocr_path():
 ```
 pip install these dependencies:
 ```py
-pip install torch torchvision pytesseract tesseract pillow requests matplotlib
+pip install torch torchvision pytesseract tesseract pillow requests matplotlib fastapi
 ```
 Then, install PyTorch (https://pytorch.org/get-started/locally/) and then install this repo as a Python package. On a CUDA GPU machine, the following will do the trick:
 ```py
