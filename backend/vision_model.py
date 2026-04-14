@@ -4,7 +4,7 @@ import torch
 import requests
 from io import BytesIO
 from PIL import Image, ImageGrab
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt #Just for testing so we can see image 
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 categories=[
