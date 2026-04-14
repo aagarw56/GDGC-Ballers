@@ -6,24 +6,30 @@ export default function App() {
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-      const url = tabs[0]?.url ?? 'No active tab URL found'
-      setCurrentUrl(url)
+      const url = tabs[0]?.url ?? ''
+      setCurrentUrl(url || 'No active tab URL found')
 
-      if (!tabs[0]?.url) return
+      if (!url) return
 
       try {
-        await fetch('http://127.0.0.1:5000/current-url', {
+        const response = await fetch('http://127.0.0.1:8000/current-url', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ url: tabs[0].url }),
+          body: JSON.stringify({ url }),
         })
+
+        const data = await response.json()
+        console.log('Backend response:', data)
       } catch (error) {
-        console.error('Failed to send URL to backend:', error)
+        console.error('Failed to send URL:', error)
       }
     })
   }, [])
+
+  return <div>{currentUrl}</div>
+}
 
   return (
     <div className = "container">
