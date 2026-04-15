@@ -7,30 +7,54 @@ body {
 .container{
   width: 340px;
   padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: #fde8d8;
+  border-radius: 14px;
+  padding: 12px 14px;
 }
 
 .premium{
   background: #ffa44e;
   border-radius: 20px;
+  border: none;
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.premium:hover {
+  background: #e8622a;
 }
 
 .card{
   background: white;
   border-radius: 14px;
+  padding: 13px 15ppx;
+  border: 1px solid #ede8e2;
 }
 
 .progress{
   height: 6px;
   background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
 
 .progress-fill{
   width: 84%;
   background: orange;
+  height: 100%;
+  border-radius: 3px;
 }
