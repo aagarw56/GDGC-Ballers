@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import React from 'react'
 
 type Analysis = {
   productKeyword?: string
