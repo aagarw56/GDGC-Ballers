@@ -1,12 +1,10 @@
-import os
 import re
-from typing import Any
 from urllib.parse import unquote, urlparse
 
-import requests
+from .brand_reputation import get_brand_reputation
+from .canopy_client import get_full_product_profile, search_similar_products
+from .review_integrity import analyze_review_integrity
 
-
-CANOPY_PRODUCT_URL = "https://rest.canopyapi.co/api/amazon/product"
 PRODUCT_KEYWORDS = [
     "laptop",
     "smartphone",
@@ -54,66 +52,86 @@ def extract_asin(url: str) -> str | None:
     return None
 
 
-def infer_amazon_domain(url: str) -> str:
-    host = urlparse(url).netloc.lower()
+def build_overall_score(product_rating: float | int | None, integrity_score: int, reputation_score: int) -> int:
+    rating_component = 0
+    if product_rating is not None:
+        rating_component = round((float(product_rating) / 5) * 100)
 
-    domain_map = {
-        "amazon.com": "US",
-        "www.amazon.com": "US",
-        "amazon.co.uk": "GB",
-        "www.amazon.co.uk": "GB",
-        "amazon.ca": "CA",
-        "www.amazon.ca": "CA",
-        "amazon.de": "DE",
-        "www.amazon.de": "DE",
-        "amazon.fr": "FR",
-        "www.amazon.fr": "FR",
-        "amazon.in": "IN",
-        "www.amazon.in": "IN",
-        "amazon.co.jp": "JP",
-        "www.amazon.co.jp": "JP",
-    }
-
-    return domain_map.get(host, "US")
+    return round((rating_component * 0.4) + (integrity_score * 0.35) + (reputation_score * 0.25))
 
 
-def fetch_canopy_product(url: str) -> dict[str, Any]:
-    api_key = os.getenv("CANOPY_API_KEY")
-    if not api_key:
-        raise RuntimeError("Missing CANOPY_API_KEY environment variable.")
-
+def analyze_product_url(url: str) -> dict:
     asin = extract_asin(url)
     if not asin:
         raise ValueError("Could not find an Amazon ASIN in the provided URL.")
 
-    response = requests.get(
-        CANOPY_PRODUCT_URL,
-        params={
-            "asin": asin,
-            "domain": infer_amazon_domain(url),
-        },
-        headers={
-            "API-KEY": api_key,
-            "Content-Type": "application/json",
-        },
-        timeout=20,
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def analyze_product_url(url: str) -> dict[str, Any]:
     product_keyword = extract_product_keyword(url)
-    canopy_data = fetch_canopy_product(url)
+    profile = get_full_product_profile(asin)
+
+    product = profile.get("product", {})
+    brand = profile.get("brand", "") or product.get("brand", "")
+
+    review_integrity = analyze_review_integrity(asin)
+    brand_reputation = get_brand_reputation(brand) if brand else {
+        "brand": "",
+        "reputation_score_pct": 50,
+        "overall_label": "Brand not found.",
+        "insights": [],
+        "reviews_analyzed": 0,
+    }
+
+    similar_products = []
+    if product_keyword != "unknown":
+        similar_products = search_similar_products(product_keyword)
+
+    rating = product.get("rating")
+    integrity_score = review_integrity.get("integrity_score_pct", 50)
+    reputation_score = brand_reputation.get("reputation_score_pct", 50)
+
+    overall_score = build_overall_score(rating, integrity_score, reputation_score)
 
     return {
+        "asin": asin,
         "productKeyword": product_keyword,
-        "asin": extract_asin(url),
-        "title": canopy_data.get("title"),
-        "price": canopy_data.get("price"),
-        "rating": canopy_data.get("rating"),
-        "reviewCount": canopy_data.get("ratings_total"),
-        "brand": canopy_data.get("brand"),
-        "image": canopy_data.get("main_image"),
-        "raw": canopy_data,
+        "title": product.get("title"),
+        "brand": brand,
+        "price": (product.get("price") or {}).get("display"),
+        "rating": rating,
+        "reviewCount": product.get("ratingsTotal"),
+        "image": product.get("mainImageUrl"),
+
+        "overallScore": overall_score,
+
+        "reviewIntegrity": {
+            "score": integrity_score,
+            "label": review_integrity.get("integrity_label"),
+            "verifiedPurchaseRatio": review_integrity.get("verified_purchase_ratio"),
+            "sentimentConsistencyRatio": review_integrity.get("sentiment_consistency_ratio"),
+            "flags": review_integrity.get("flags", {}),
+        },
+
+        "brandReputation": {
+            "score": reputation_score,
+            "label": brand_reputation.get("overall_label"),
+            "insights": brand_reputation.get("insights", []),
+            "reviewsAnalyzed": brand_reputation.get("reviews_analyzed", 0),
+        },
+
+        "similarProducts": [
+            {
+                "title": item.get("title"),
+                "asin": item.get("asin"),
+                "brand": item.get("brand"),
+                "rating": item.get("rating"),
+                "reviewCount": item.get("ratingsTotal"),
+                "price": (item.get("price") or {}).get("display"),
+                "isPrime": item.get("isPrime"),
+            }
+            for item in similar_products[:3]
+        ],
+
+        "raw": {
+            "product": product,
+            "reviews": profile.get("reviews", []),
+        },
     }

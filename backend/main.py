@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from vision_model import analyze_product_url
+from .vision_model import analyze_product_url
 
 app = FastAPI()
 
@@ -14,8 +14,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 class UrlPayload(BaseModel):
     url: str
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
 
 
 @app.post("/current-url")

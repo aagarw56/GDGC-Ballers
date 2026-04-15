@@ -4,7 +4,7 @@ import nltk                                          # Natural Language Toolkit 
 nltk.download('vader_lexicon', quiet=True)           # downloads VADER's word scoring dictionary (one-time, silent)
 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer   # the actual sentiment scoring engine
-from canopy_client import get_product_reviews        # reuse the review fetcher we already built
+from .canopy_client import get_product_reviews        # reuse the review fetcher we already built
 
 
 # Create one shared analyzer — it's expensive to recreate, so we make it once at module level

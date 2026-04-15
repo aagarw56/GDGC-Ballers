@@ -1,15 +1,32 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-import React from 'react'
+
+type Insight = {
+  topic: string
+  status: string
+}
 
 type Analysis = {
-  productKeyword?: string
   asin?: string
+  productKeyword?: string
   title?: string
+  brand?: string | null
   price?: string | number | null
   rating?: string | number | null
   reviewCount?: number | null
-  brand?: string | null
+  overallScore?: number
+  reviewIntegrity?: {
+    score?: number
+    label?: string
+    verifiedPurchaseRatio?: number
+    sentimentConsistencyRatio?: number
+  }
+  brandReputation?: {
+    score?: number
+    label?: string
+    insights?: Insight[]
+    reviewsAnalyzed?: number
+  }
 }
 
 export default function App() {
@@ -47,7 +64,7 @@ export default function App() {
         }
 
         setAnalysis(data.analysis ?? null)
-        setBackendStatus(`Sent to backend: ${data.ok ? 'success' : 'failed'}`)
+        setBackendStatus('Analysis complete')
       } catch (error) {
         console.error('Failed to send URL:', error)
         setBackendStatus('Backend request failed. Is FastAPI running on port 8000?')
@@ -62,12 +79,11 @@ export default function App() {
           <h2>Nectar</h2>
           <p className="subtitle">PRODUCT ANALYZER</p>
         </div>
-        <button className="premium">Go Premium</button>
       </div>
 
       <div className="card">
-        <h3>Premium</h3>
-        <h1>{analysis?.rating ? `${analysis.rating} / 5` : 'Waiting...'}</h1>
+        <h3>Overall Score</h3>
+        <h1>{analysis?.overallScore ?? 'Waiting...'}</h1>
       </div>
 
       <div className="card">
@@ -81,15 +97,40 @@ export default function App() {
       </div>
 
       <div className="card">
-        <h3>Product Match</h3>
+        <h3>Product</h3>
         <p className="desc">Keyword: {analysis?.productKeyword ?? 'Not detected yet'}</p>
         <p className="desc">ASIN: {analysis?.asin ?? 'Not found yet'}</p>
-        <p className="desc">Title: {analysis?.title ?? 'Waiting for Canopy...'}</p>
-        <p className="desc">Brand: {analysis?.brand ?? 'Waiting for Canopy...'}</p>
-        <p className="desc">Price: {analysis?.price ?? 'Waiting for Canopy...'}</p>
+        <p className="desc">Title: {analysis?.title ?? 'Waiting...'}</p>
+        <p className="desc">Brand: {analysis?.brand ?? 'Waiting...'}</p>
+        <p className="desc">Price: {analysis?.price ?? 'Waiting...'}</p>
+        <p className="desc">Rating: {analysis?.rating ?? 'Waiting...'}</p>
+        <p className="desc">Review Count: {analysis?.reviewCount ?? 'Waiting...'}</p>
+      </div>
+
+      <div className="card">
+        <h3>Review Integrity</h3>
+        <p className="desc">Score: {analysis?.reviewIntegrity?.score ?? 'Waiting...'}</p>
+        <p className="desc">{analysis?.reviewIntegrity?.label ?? 'Waiting...'}</p>
         <p className="desc">
-          Reviews: {analysis?.reviewCount != null ? analysis.reviewCount : 'Waiting for Canopy...'}
+          Verified Purchase Ratio: {analysis?.reviewIntegrity?.verifiedPurchaseRatio ?? 'Waiting...'}
         </p>
+        <p className="desc">
+          Sentiment Consistency: {analysis?.reviewIntegrity?.sentimentConsistencyRatio ?? 'Waiting...'}
+        </p>
+      </div>
+
+      <div className="card">
+        <h3>Brand Reputation</h3>
+        <p className="desc">Score: {analysis?.brandReputation?.score ?? 'Waiting...'}</p>
+        <p className="desc">{analysis?.brandReputation?.label ?? 'Waiting...'}</p>
+        <p className="desc">
+          Reviews Analyzed: {analysis?.brandReputation?.reviewsAnalyzed ?? 'Waiting...'}
+        </p>
+        {analysis?.brandReputation?.insights?.map((insight) => (
+          <p key={insight.topic} className="desc">
+            {insight.topic}: {insight.status}
+          </p>
+        ))}
       </div>
     </div>
   )

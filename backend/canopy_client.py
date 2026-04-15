@@ -1,20 +1,20 @@
 # canopy_client.py
 
-import requests        # handles sending HTTP requests to Canopy's server
-import os              # lets us read environment variables from the system
-from dotenv import load_dotenv  # reads your .env file and loads it into os.environ
+import os
 
-load_dotenv()  # call this once at the top — it finds your .env file and loads CANOPY_API_KEY into memory
+import requests
+from dotenv import load_dotenv
 
-# Pull the key from the environment — never write the actual key string in code
+from .budget_config import BUDGET_MIN, BUDGET_MAX
+
+load_dotenv()
+
 API_KEY = os.getenv("CANOPY_API_KEY")
-
-# This is Canopy's GraphQL endpoint — all queries go to this single URL
 CANOPY_URL = "https://graphql.canopyapi.co/"
 
-# These headers are sent with every request
-# "Content-Type" tells the server we're sending JSON
-# "API-KEY" is how Canopy authenticates you — this is where the key goes
+if not API_KEY:
+    raise RuntimeError("Missing CANOPY_API_KEY environment variable.")
+
 HEADERS = {
     "Content-Type": "application/json",
     "API-KEY": API_KEY,
