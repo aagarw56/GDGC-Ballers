@@ -1,6 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+from vision_model import analyze_product_url
 
 app = FastAPI()
 
@@ -15,7 +17,17 @@ app.add_middleware(
 class UrlPayload(BaseModel):
     url: str
 
+
 @app.post("/current-url")
 async def receive_url(payload: UrlPayload):
-    print("Received URL:", payload.url)
-    return {"ok": True, "url": payload.url}
+    try:
+        analysis = analyze_product_url(payload.url)
+        return {
+            "ok": True,
+            "url": payload.url,
+            "analysis": analysis,
+        }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
