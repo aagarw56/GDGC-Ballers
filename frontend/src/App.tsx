@@ -136,7 +136,7 @@ export default function App() {
               <span className="brand-icon"></span>
               <div className="brand-block">
                 <h1>Nectar</h1>
-                <p>PRODUCT ANALYZER</p>
+                <p>SMART PRODUCT ANALYZER</p>
               </div>
             </div>
           </div>
@@ -145,13 +145,13 @@ export default function App() {
         </header>
 
         <div className="content">
-          <SectionCard title="Scan">
+          <SectionCard title="Scan Current Product">
             <button
               className="scan-btn"
               onClick={handleScan}
               disabled={loading}
             >
-              {loading ? 'Scanning...' : 'Scan Current Product'}
+              {loading ? 'Scanning...' : 'Click to Scan'}
             </button>
           </SectionCard>
 
@@ -169,7 +169,7 @@ export default function App() {
             <p className="body-text url-text">{currentUrl}</p>
           </SectionCard>
 
-          <SectionCard title="Backend Status">
+          <SectionCard title="System Status">
             <p className={`body-text ${error ? 'status-error' : 'status-ok'}`}>
               {error || backendStatus}
             </p>
