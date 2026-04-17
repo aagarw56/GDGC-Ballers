@@ -98,7 +98,8 @@ def analyze_product_url(url: str) -> dict:
         "price": (product.get("price") or {}).get("display"),
         "rating": rating,
         "reviewCount": product.get("ratingsTotal"),
-        "image": product.get("mainImageUrl"),
+        "image": product.get("mainImageUrl"), ## image available for Scanned product
+        "amazonUrl": f"https://www.amazon.com/dp/{asin}", ## link available for Scanned product 
 
         "overallScore": overall_score,
 
@@ -126,8 +127,10 @@ def analyze_product_url(url: str) -> dict:
                 "reviewCount": item.get("ratingsTotal"),
                 "price": (item.get("price") or {}).get("display"),
                 "isPrime": item.get("isPrime"),
+                "image": item.get("mainImageUrl"),              ## thumbnail for each product
+                "amazonUrl": f"https://www.amazon.com/dp/{'asin'}",  ## clickable amazon link for each product
             }
-            for item in similar_products[:3]
+            for item in similar_products[:5] ## 5 different products in array form
         ],
 
         "raw": {

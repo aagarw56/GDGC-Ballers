@@ -30,8 +30,7 @@ body,
 
 body {
   background: transparent;
-  overflow: hidden;
-  height: 100vh;
+  overflow-y: auto;
   font-family: var(--font-display);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -40,8 +39,8 @@ body {
 
 /* POPUP CONTAINER */
 #root {
-  width: 360px;
-  height: 600px;
+  width: 380px;
+  min-height: auto;
 }
 
 /* MAIN APP CARD */
