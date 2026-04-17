@@ -230,6 +230,7 @@ def analyze_product_url(url: str) -> dict:
             "verifiedPurchaseRatio": review_integrity.get("verified_purchase_ratio"),
             "sentimentConsistencyRatio": review_integrity.get("sentiment_consistency_ratio"),
             "flags": review_integrity.get("flags", {}),
+            "commonKeywords": review_integrity.get("commonKeywords", []),
         },
 
         "brandReputation": {
@@ -237,6 +238,7 @@ def analyze_product_url(url: str) -> dict:
             "label": brand_reputation.get("overall_label"),
             "insights": brand_reputation.get("insights", []),
             "reviewsAnalyzed": brand_reputation.get("reviews_analyzed", 0),
+            "commonKeywords": brand_reputation.get("commonKeywords", []),
         },
 
         "similarProducts": [

@@ -1,12 +1,18 @@
 # review_integrity.py
 
+import re
+from collections import Counter                      # counts word frequencies for commonKeywords
 import nltk                                          # Natural Language Toolkit — VADER lives inside here
 nltk.download('vader_lexicon', quiet=True)           # downloads VADER's word scoring dictionary (one-time, silent)
+nltk.download('stopwords', quiet=True)
 
 from nltk.sentiment.vader import SentimentIntensityAnalyzer   # the actual sentiment scoring engine
+from nltk.corpus import stopwords
 
 # Create one shared analyzer — it's expensive to recreate, so we make it once at module level
 sia = SentimentIntensityAnalyzer()
+
+STOP_WORDS = set(stopwords.words('english'))         # common words to exclude from keyword counts
 
 
 def score_single_review(review_text: str) -> dict:
@@ -57,6 +63,53 @@ def check_star_sentiment_agreement(star_rating: int, compound_score: float) -> b
         return True                          # 3 stars is inherently mixed — always counts as agreement
 
 
+def extract_common_keywords(reviews: list, top_n: int = 10) -> list:
+    """
+    Extracts the most frequently appearing meaningful words across all Amazon review bodies.
+    Filters out stopwords and short/noisy tokens.
+    Returns a list of dicts: [{word, count, sentiment}] sorted by frequency.
+    The sentiment for each keyword reflects the average VADER compound of reviews
+    containing that word — so the frontend can color-code chips as positive/negative/neutral.
+    """
+    word_counts = Counter()
+    # Map each word → list of compound scores from reviews that contain it
+    word_sentiments: dict[str, list[float]] = {}
+
+    for review in reviews:
+        body = review.get("body", "")
+        if not body:
+            continue
+
+        compound = sia.polarity_scores(body)["compound"]
+
+        # Tokenize: lowercase, letters only, min 4 chars, drop stopwords
+        words = re.findall(r"[a-z]{4,}", body.lower())
+        unique_words = set(words)  # count each word once per review to avoid one verbose review dominating
+
+        for word in unique_words:
+            if word not in STOP_WORDS:
+                word_counts[word] += 1
+                word_sentiments.setdefault(word, []).append(compound)
+
+    keywords = []
+    for word, count in word_counts.most_common(top_n):
+        scores = word_sentiments.get(word, [])
+        avg = sum(scores) / len(scores) if scores else 0
+
+        if avg >= 0.05:
+            sentiment = "positive"
+        elif avg <= -0.05:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+
+        keywords.append({
+            "word": word,
+            "count": count,
+            "sentiment": sentiment,   # frontend can use this to color-code the chip
+        })
+
+    return keywords
 
 
 def analyze_review_integrity(reviews: list) -> dict:
@@ -74,6 +127,7 @@ def analyze_review_integrity(reviews: list) -> dict:
       - sentiment_breakdown: {"Positive": N, "Neutral": N, "Negative": N}
       - review_details: list of per-review data (for debugging or expanded UI)
       - flags: dict of specific warning flags
+      - commonKeywords: top words from reviews with frequency and sentiment label
     """
 
     if not reviews or len(reviews) == 0:                                  # guard: if Canopy returns nothing, bail gracefully
@@ -161,4 +215,5 @@ def analyze_review_integrity(reviews: list) -> dict:
         "sentiment_breakdown": sentiment_counts,
         "review_details": review_details,
         "flags": flags,
+        "commonKeywords": extract_common_keywords(reviews),  # top words driving the score
     }

@@ -4,12 +4,17 @@ import re
 import requests                                      # sends HTTP requests to Trustpilot
 import json                                          # parses the JSON blob embedded in Trustpilot's HTML
 import time                                          # polite delay between page requests
+from collections import Counter                      # counts word frequencies for commonKeywords
 from bs4 import BeautifulSoup                        # parses the HTML page structure
 import nltk
 nltk.download('vader_lexicon', quiet=True)
+nltk.download('stopwords', quiet=True)
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from nltk.corpus import stopwords
 
 sia = SentimentIntensityAnalyzer()                   # one shared VADER instance
+
+STOP_WORDS = set(stopwords.words('english'))         # common words to exclude from keyword counts
 
 # Browser-like headers so Trustpilot doesn't immediately block the request
 HEADERS = {
@@ -182,6 +187,55 @@ def scrape_trustpilot_reviews(slug: str, max_reviews: int = 20) -> list:
     return reviews[:max_reviews]
 
 
+def extract_common_keywords(reviews: list, top_n: int = 10) -> list:
+    """
+    Extracts the most frequently appearing meaningful words across all review texts.
+    Filters out stopwords and short/noisy tokens.
+    Returns a list of dicts: [{word, count, sentiment}] sorted by frequency.
+    The sentiment for each keyword is determined by averaging VADER scores of
+    sentences containing that word — so the frontend can color-code them.
+    """
+    word_counts = Counter()
+    # Map each word → list of compound scores from reviews containing it
+    word_sentiments: dict[str, list[float]] = {}
+
+    for review in reviews:
+        text = review.get("text", "")
+        if not text:
+            continue
+
+        compound = sia.polarity_scores(text)["compound"]
+
+        # Tokenize: lowercase, letters only, drop stopwords and short words
+        words = re.findall(r"[a-z]{4,}", text.lower())
+        unique_words = set(words)  # count each word once per review to avoid spam
+
+        for word in unique_words:
+            if word not in STOP_WORDS:
+                word_counts[word] += 1
+                word_sentiments.setdefault(word, []).append(compound)
+
+    keywords = []
+    for word, count in word_counts.most_common(top_n):
+        scores = word_sentiments.get(word, [])
+        avg = sum(scores) / len(scores) if scores else 0
+
+        if avg >= 0.05:
+            sentiment = "positive"
+        elif avg <= -0.05:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+
+        keywords.append({
+            "word": word,
+            "count": count,
+            "sentiment": sentiment,   # frontend can use this to color-code the chip
+        })
+
+    return keywords
+
+
 def build_reputation_insights(reviews: list, brand_name: str) -> dict:
     """
     Runs VADER on all Trustpilot reviews and builds:
@@ -189,6 +243,7 @@ def build_reputation_insights(reviews: list, brand_name: str) -> dict:
       - A human-readable overall label
       - 3 insight bullet points for the Nectar UI
       - A percentage score for the UI bar display (0–100)
+      - commonKeywords: top words from reviews with sentiment label
     """
     if not reviews:
         # Return a neutral fallback so the pipeline doesn't crash
@@ -201,6 +256,7 @@ def build_reputation_insights(reviews: list, brand_name: str) -> dict:
                 {"topic": "Review Sentiment",       "status": "N/A"},
                 {"topic": "Overall Brand Trust",    "status": "N/A"},
             ],
+            "commonKeywords": [],
             "reviews_analyzed": 0,
         }
 
@@ -265,22 +321,6 @@ def build_reputation_insights(reviews: list, brand_name: str) -> dict:
     ]
 
     # Convert compound score (-1 to +1) → 0–100 percentage for the UI progress bar
-    # Formula: shift range from [-1,+1] to [0,2], then scale to [0,100]
-    if total > 0:
-        if avg_compound >= 0.2:
-            reputation_score_pct = 90
-        elif avg_compound >= 0.05:
-            reputation_score_pct = 80
-        elif avg_compound >= -0.05:
-            reputation_score_pct = 70
-        elif avg_compound >= -0.2:
-            reputation_score_pct = 55
-        else:
-            reputation_score_pct = 35
-    else:
-        reputation_score_pct = None
-
-    # Overall label shown under the score
     avg_rating = sum(review.get("rating", 3) for review in reviews) / total if total > 0 else 3
 
     sentiment_score = ((avg_compound + 1) / 2) * 100
@@ -288,6 +328,7 @@ def build_reputation_insights(reviews: list, brand_name: str) -> dict:
 
     reputation_score_pct = round((sentiment_score * 0.45) + (rating_score * 0.55)) if total > 0 else None
 
+    # Overall label shown under the score
     if reputation_score_pct >= 80:
         overall_label = "Strong overall brand reputation on Trustpilot."
     elif reputation_score_pct >= 65:
@@ -306,6 +347,7 @@ def build_reputation_insights(reviews: list, brand_name: str) -> dict:
         "negative_pct": round((neg_count / total) * 100) if total > 0 else 0,
         "reviews_analyzed": total,
         "insights": insights,                               # 3 bullet points for the UI
+        "commonKeywords": extract_common_keywords(reviews), # top words driving the score
     }
 
 
@@ -334,6 +376,7 @@ def get_brand_reputation(brand_name: str) -> dict:
                 {"topic": "Shipping & Delivery", "status": "Unknown"},
                 {"topic": "Build Quality", "status": "Unknown"},
             ],
+            "commonKeywords": [],
             "source": "no_trustpilot_data"
         } 
 
