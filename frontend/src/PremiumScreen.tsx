@@ -21,7 +21,7 @@ const plans = [
   },
   {
     name: 'PRO',
-    price: '$15.99',
+    price: '$19.99',
     period: '/mo',
     desc: 'For e-commerce & dropshippers',
     features: [
@@ -32,13 +32,14 @@ const plans = [
       'Bulk analysis (up to 50 at once)',
       'Side-by-side product comparison',
       'Search by keyword and URL',
+      'Analysis history database',
     ],
     highlight: true,
     cta: 'Upgrade to Pro',
   },
   {
     name: 'BUSINESS',
-    price: '$99.99',
+    price: '$149.99',
     period: '/mo',
     desc: 'For retailers & agencies',
     features: [
@@ -49,7 +50,8 @@ const plans = [
       'Demographic & geographic sentiment',
       'Bulk analysis (up to 2,000 at once)',
       'Custom white-label reports',
-      'Analysis history database',
+      'Price and sentiment change alerts',
+      'Audit logs'
     ],
     highlight: false,
     cta: 'Upgrade to Business',
