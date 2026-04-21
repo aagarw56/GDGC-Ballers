@@ -6,12 +6,18 @@ git clone https://github.com/aagarw56/GDGC-Ballers.git
 cd GDGC-Ballers
 ```
 ## Backend Setup
-Install node.js (http://nodejs.org/en/download) and add to PATH.
 ```bash
 cd backend
 python -m venv .venv
+```
+### Activate virtual environment
+```bash
 .venv\Scripts\activate # Windows
 source .venv/bin/activate # Mac/Linux
+```
+### Install dependencies
+```bash
+pip install -r requirements.txt
 ```
 ## Create .env in ROOT directory:
 ```
@@ -19,9 +25,13 @@ CANOPY_API_KEY="your_api_key_here"
 GEMINI_API_KEY="your_api_key_here"
 ```
 ## Frontend Setup
+Install Node.js (http://nodejs.org/en/download) and add to PATH.
 ```bash
 cd frontend
 npm install
+```
+### Build extension
+```bash
 npm run build
 ```
 ## Load Extension
@@ -31,9 +41,10 @@ npm run build
 4. Select GDGC-Ballers/frontend/dist
 
 ## Deploying Backend Server
-Use hosted backend already deployed on Render -- no setup required.  
-### Deploy locally (optional)
-Change frontend/.env.production to:
+### Use hosted backend (Recommended): 
+The backend is already deployed on Render -- no setup required.  
+### Deploy locally (Optional)
+Set frontend/.env.production to:
 ```
 VITE_API_URL=http://127.0.0.1:8000
 ```
