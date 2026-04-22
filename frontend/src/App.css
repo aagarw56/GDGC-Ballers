@@ -685,3 +685,23 @@ body {
 .explain-text {
   margin: 0;
 }
+
+@keyframes shimmer {
+  0%   { background-position: -700px 0; }
+  100% { background-position:  700px 0; }
+}
+ 
+.skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    #ede8e3 0%,
+    #e2dbd5 45%,
+    #ede8e3 90%
+  );
+  background-size: 1400px 100%;
+  animation: shimmer 1.5s infinite linear;
+ 
+  /* Prevents height collapsing when used as a block element */
+  min-height: 1px;
+}
