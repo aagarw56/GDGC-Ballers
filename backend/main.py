@@ -1,5 +1,8 @@
+import sys
 import asyncio
-asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from typing import Any
 from fastapi import FastAPI, HTTPException, Request
