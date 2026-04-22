@@ -45,15 +45,18 @@ npm run build
 ### Use hosted backend (Recommended): 
 The backend is already deployed on Render -- no setup required.  
 ### Deploy locally (Optional)
-Set frontend/.env.production to:
-```
+1. Set frontend/.env.production to:
+```bash
 VITE_API_URL=http://127.0.0.1:8000
 ```
-Then run this in terminal:
+3. Rebuild extension:
 ```bash
 cd frontend
 npm run build
-cd..
+```
+4. Run backend:
+```bash
+cd ..
 uvicorn backend.main:app --reload
 ```
 _____________________________________________________________________________________________________________________________________________________
