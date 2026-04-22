@@ -2,110 +2,11 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import PremiumScreen from './PremiumScreen'
 
-const DEV_PREVIEW = import.meta.env.DEV && false   // flip to `true` locally to preview mock data
+const DEV_PREVIEW = import.meta.env.DEV && false
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 
 type Insight = { topic: string; status: string }
 type Keyword = { word: string; count: number; sentiment: 'positive' | 'negative' | 'neutral' }
-
-type ScanRecord = {
-  id: string
-  scannedAt: string
-  url: string
-  analysis: Analysis
-}
-
-const LAST_SCAN_KEY = 'nectar_last_scan'
-const SCAN_HISTORY_KEY = 'nectar_scan_history'
-const MAX_SCAN_HISTORY = 12
-
-function getNumericPrice(price?: string | number | null): number | null {
-  if (price === null || price === undefined) return null
-  if (typeof price === 'number') return Number.isFinite(price) ? price : null
-
-  const cleaned = String(price).replace(/[^0-9.]/g, '')
-  const parsed = Number(cleaned)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function formatPriceDifference(diff: number): string {
-  const abs = Math.abs(diff).toFixed(2)
-  if (diff === 0) return '$0.00'
-  return diff > 0 ? `+$${abs}` : `-$${abs}`
-}
-
-function compareProductAgainstCurrent(current: Analysis | null, product?: SimilarProduct) {
-  const currentPrice = getNumericPrice(current?.price)
-  const otherPrice = getNumericPrice(product?.price)
-
-  const currentRating = Number(current?.rating ?? NaN)
-  const otherRating = Number(product?.rating ?? NaN)
-
-  const hasCurrentRating = Number.isFinite(currentRating)
-  const hasOtherRating = Number.isFinite(otherRating)
-
-  const priceDiff =
-    currentPrice !== null && otherPrice !== null
-      ? otherPrice - currentPrice
-      : null
-
-  let tag: 'BETTER' | 'SIMILAR' | 'WORSE' = 'SIMILAR'
-
-  let score = 0
-
-  if (priceDiff !== null) {
-    if (priceDiff <= -12) score += 1
-    if (priceDiff >= 12) score -= 1
-  }
-
-  if (hasCurrentRating && hasOtherRating) {
-    if (otherRating >= currentRating + 0.4) score += 1
-    if (otherRating <= currentRating - 0.4) score -= 1
-  }
-
-  if (score >= 1) tag = 'BETTER'
-  else if (score <= -1) tag = 'WORSE'
-  else tag = 'SIMILAR'
-
-  return {
-    tag,
-    priceDiff,
-  }
-}
-
-function getTagClassName(tag: 'BETTER' | 'SIMILAR' | 'WORSE') {
-  if (tag === 'BETTER') return 'comparison-badge comparison-badge--better'
-  if (tag === 'WORSE') return 'comparison-badge comparison-badge--worse'
-  return 'comparison-badge comparison-badge--similar'
-}
-
-function saveLastScan(record: ScanRecord) {
-  chrome.storage.local.set({ [LAST_SCAN_KEY]: record })
-}
-
-function loadLastScan(): Promise<ScanRecord | null> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([LAST_SCAN_KEY], (result) => {
-      resolve((result?.[LAST_SCAN_KEY] as ScanRecord) ?? null)
-    })
-  })
-}
-
-function saveScanToHistory(record: ScanRecord) {
-  chrome.storage.local.get([SCAN_HISTORY_KEY], (result) => {
-    const existing = (result?.[SCAN_HISTORY_KEY] as ScanRecord[]) ?? []
-    const next = [record, ...existing].slice(0, MAX_SCAN_HISTORY)
-    chrome.storage.local.set({ [SCAN_HISTORY_KEY]: next })
-  })
-}
-
-function loadScanHistory(): Promise<ScanRecord[]> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get([SCAN_HISTORY_KEY], (result) => {
-      resolve((result?.[SCAN_HISTORY_KEY] as ScanRecord[]) ?? [])
-    })
-  })
-}
 
 type SimilarProduct = {
   title?: string
@@ -155,50 +56,148 @@ type Analysis = {
   }
 }
 
+type ScanRecord = {
+  id: string
+  scannedAt: string
+  url: string
+  analysis: Analysis
+}
+
+const CURRENT_SCAN_KEY = 'nectar_current_scan'
+const PREVIOUS_SCAN_KEY = 'nectar_previous_scan'
+const SCAN_HISTORY_KEY = 'nectar_scan_history'
+const MAX_SCAN_HISTORY = 10
+
+function getNumericPrice(price?: string | number | null): number | null {
+  if (price === null || price === undefined) return null
+  if (typeof price === 'number') return Number.isFinite(price) ? price : null
+
+  const cleaned = String(price).replace(/[^0-9.]/g, '')
+  const parsed = Number(cleaned)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatPriceDifference(diff: number): string {
+  const abs = Math.abs(diff).toFixed(2)
+  if (diff === 0) return '$0.00'
+  return diff > 0 ? `+$${abs}` : `-$${abs}`
+}
+
+function compareProductAgainstCurrent(current: Analysis | null, product?: SimilarProduct) {
+  const currentPrice = getNumericPrice(current?.price)
+  const otherPrice = getNumericPrice(product?.price)
+
+  const currentRating = Number(current?.rating ?? NaN)
+  const otherRating = Number(product?.rating ?? NaN)
+
+  const hasCurrentRating = Number.isFinite(currentRating)
+  const hasOtherRating = Number.isFinite(otherRating)
+
+  const priceDiff =
+    currentPrice !== null && otherPrice !== null
+      ? otherPrice - currentPrice
+      : null
+
+  let tag: 'BETTER' | 'SIMILAR' | 'WORSE' = 'SIMILAR'
+  let score = 0
+
+  if (priceDiff !== null) {
+    if (priceDiff <= -12) score += 1
+    if (priceDiff >= 12) score -= 1
+  }
+
+  if (hasCurrentRating && hasOtherRating) {
+    if (otherRating >= currentRating + 0.4) score += 1
+    if (otherRating <= currentRating - 0.4) score -= 1
+  }
+
+  if (score >= 1) tag = 'BETTER'
+  else if (score <= -1) tag = 'WORSE'
+
+  return {
+    tag,
+    priceDiff,
+  }
+}
+
+function getTagClassName(tag: 'BETTER' | 'SIMILAR' | 'WORSE') {
+  if (tag === 'BETTER') return 'comparison-badge comparison-badge--better'
+  if (tag === 'WORSE') return 'comparison-badge comparison-badge--worse'
+  return 'comparison-badge comparison-badge--similar'
+}
+
+function storageGet<T>(key: string): Promise<T | null> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => {
+      resolve((result?.[key] as T) ?? null)
+    })
+  })
+}
+
+function storageSet(values: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(values, () => resolve())
+  })
+}
+
+function loadCurrentSavedScan(): Promise<ScanRecord | null> {
+  return storageGet<ScanRecord>(CURRENT_SCAN_KEY)
+}
+
+function loadPreviousSavedScan(): Promise<ScanRecord | null> {
+  return storageGet<ScanRecord>(PREVIOUS_SCAN_KEY)
+}
+
+function loadScanHistory(): Promise<ScanRecord[]> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SCAN_HISTORY_KEY], (result) => {
+      resolve((result?.[SCAN_HISTORY_KEY] as ScanRecord[]) ?? [])
+    })
+  })
+}
+
 const mockAnalysis: Analysis = {
-  title: "Hydro Flask 32 oz Water Bottle",
-  brand: "Hydro Flask",
-  price: "$44.95",
+  title: 'Hydro Flask 32 oz Water Bottle',
+  brand: 'Hydro Flask',
+  price: '$44.95',
   rating: 4.7,
   reviewCount: 12000,
   overallScore: 84,
   reviewIntegrity: {
     score: 82,
-    label: "Mostly authentic",
+    label: 'Mostly authentic',
     verifiedPurchaseRatio: 0.78,
     sentimentConsistencyRatio: 0.81,
     commonKeywords: [
-      { word: "durable", count: 120, sentiment: "positive" },
-      { word: "expensive", count: 45, sentiment: "negative" },
-      { word: "insulated", count: 90, sentiment: "positive" },
+      { word: 'durable', count: 120, sentiment: 'positive' },
+      { word: 'expensive', count: 45, sentiment: 'negative' },
+      { word: 'insulated', count: 90, sentiment: 'positive' },
     ],
   },
   brandReputation: {
     score: 76,
-    label: "Generally positive",
+    label: 'Generally positive',
     reviewsAnalyzed: 500,
     insights: [
-      { topic: "Quality", status: "Strong" },
-      { topic: "Price", status: "Mixed" },
+      { topic: 'Quality', status: 'Strong' },
+      { topic: 'Price', status: 'Mixed' },
     ],
     commonKeywords: [
-      { word: "premium", count: 60, sentiment: "positive" },
-      { word: "overpriced", count: 30, sentiment: "negative" },
+      { word: 'premium', count: 60, sentiment: 'positive' },
+      { word: 'overpriced', count: 30, sentiment: 'negative' },
     ],
   },
   similarProducts: [
-    { title: "Stanley Quencher Tumbler", price: "$35.00", rating: 4.6, image: "", amazonUrl: "https://amazon.com" },
-    { title: "Simple Modern Water Bottle", price: "$25.00", rating: 4.5, image: "", amazonUrl: "https://amazon.com" },
+    { title: 'Stanley Quencher Tumbler', price: '$35.00', rating: 4.6, image: '', amazonUrl: 'https://amazon.com' },
+    { title: 'Simple Modern Water Bottle', price: '$25.00', rating: 4.5, image: '', amazonUrl: 'https://amazon.com' },
   ],
   aiAnalysis: {
-    pros: ["Great insulation", "Durable build", "Trusted brand"],
-    cons: ["Higher price", "Can dent if dropped"],
-    verdict: "Excellent bottle but slightly overpriced compared to competitors.",
-    recommendation: "COMPARE",
+    pros: ['Great insulation', 'Durable build', 'Trusted brand'],
+    cons: ['Higher price', 'Can dent if dropped'],
+    verdict: 'Excellent bottle but slightly overpriced compared to competitors.',
+    recommendation: 'COMPARE',
   },
 }
-
-// ─── Skeleton components ──────────────────────────────────────────────────────
 
 function SkeletonLine({ width = '100%', height = 14, mb = 8 }: { width?: string; height?: number; mb?: number }) {
   return <div className="skeleton" style={{ width, height, borderRadius: 8, marginBottom: mb }} />
@@ -206,7 +205,7 @@ function SkeletonLine({ width = '100%', height = 14, mb = 8 }: { width?: string;
 
 function SkeletonCard({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
-    <section className="section-card">
+    <section className="section-card skeleton-card-enter">
       <h3>{title}</h3>
       {children ?? (
         <>
@@ -221,7 +220,7 @@ function SkeletonCard({ title, children }: { title: string; children?: React.Rea
 
 function SkeletonResults() {
   return (
-    <>
+    <div className="results-animate">
       <SkeletonCard title="Overall Score">
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12 }}>
           <SkeletonLine width="80px" height={48} mb={0} />
@@ -271,7 +270,7 @@ function SkeletonResults() {
 
       <SkeletonCard title="Similar Products">
         <div style={{ display: 'flex', gap: 12, overflow: 'hidden' }}>
-          {[0, 1, 2].map(i => (
+          {[0, 1, 2].map((i) => (
             <div key={i} style={{ minWidth: 160, flexShrink: 0 }}>
               <SkeletonLine width="160px" height={110} />
               <SkeletonLine width="90%" height={12} mb={4} />
@@ -281,11 +280,9 @@ function SkeletonResults() {
           ))}
         </div>
       </SkeletonCard>
-    </>
+    </div>
   )
 }
-
-// ─── SVG placeholder for missing product images ───────────────────────────────
 
 function ProductImagePlaceholder() {
   return (
@@ -296,17 +293,12 @@ function ProductImagePlaceholder() {
       style={{ background: '#f8f7f5' }}
     >
       <rect width="110" height="110" fill="#f3ede8" rx="12" />
-      {/* box outline */}
       <rect x="28" y="30" width="54" height="42" rx="5" fill="none" stroke="#d6cbc3" strokeWidth="2.5" />
-      {/* mountain / image icon */}
       <polyline points="28,60 43,44 55,55 67,43 82,60" fill="none" stroke="#d6cbc3" strokeWidth="2.5" strokeLinejoin="round" />
-      {/* sun dot */}
       <circle cx="43" cy="42" r="4" fill="#d6cbc3" />
     </svg>
   )
 }
-
-// ─── Utility components ───────────────────────────────────────────────────────
 
 function MetricBar({ label, value }: { label: string; value?: number }) {
   const safeValue = Math.max(0, Math.min(100, value ?? 0))
@@ -328,13 +320,11 @@ function SectionCard({
   children,
   collapsible = false,
   defaultOpen = true,
-  rightSlot,
 }: {
   title: string
   children: React.ReactNode
   collapsible?: boolean
   defaultOpen?: boolean
-  rightSlot?: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -342,22 +332,20 @@ function SectionCard({
     <section className="section-card">
       <div className="section-card-header">
         <h3>{title}</h3>
-
-        <div className="section-card-actions">
-          {rightSlot}
-          {collapsible && (
-            <button
-              type="button"
-              className="collapse-btn"
-              onClick={() => setOpen((prev) => !prev)}
-            >
+        {collapsible && (
+          <div className="section-card-actions">
+            <button type="button" className="collapse-btn" onClick={() => setOpen((prev) => !prev)}>
               {open ? 'Hide' : 'Show'}
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {(!collapsible || open) && children}
+      <div className={`section-content ${!collapsible || open ? 'open' : ''}`}>
+        <div className="section-content-inner">
+          {children}
+        </div>
+      </div>
     </section>
   )
 }
@@ -370,6 +358,7 @@ function KeywordPills({
   emptyMessage: string
 }) {
   if (!keywords?.length) return <p className="body-text muted">{emptyMessage}</p>
+
   return (
     <div className="keyword-pills">
       {keywords.map((kw) => (
@@ -394,21 +383,25 @@ function ScoreExplainer({
 
   const handleExplain = async () => {
     if (!analysis) return
+
     try {
       setLoading(true)
       setError('')
-      // Strip raw reviews before sending — they're large and the endpoint doesn't need them
       const { raw: _raw, ...safeAnalysis } = analysis
+
       const response = await fetch(`${API_BASE}/explain-score`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ metric, analysis: safeAnalysis }),
       })
+
       const data = await response.json()
+
       if (!response.ok) {
         setError(typeof data.detail === 'string' ? data.detail : 'Could not explain this score.')
         return
       }
+
       setAnswer(data.answer ?? 'No explanation returned.')
     } catch {
       setError('Could not explain this score right now.')
@@ -436,8 +429,9 @@ function VerdictCard({ ai }: { ai: NonNullable<Analysis['aiAnalysis']> }) {
     SKIP: { bg: '#fee2e2', border: '#fca5a5', badge: '#dc2626' },
   }
   const c = colorMap[rec]
+
   return (
-    <section className="section-card">
+    <section className="section-card results-animate">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h3 style={{ margin: 0 }}>AI Analysis</h3>
         <span style={{ background: c.badge, color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', padding: '4px 12px', borderRadius: 999 }}>
@@ -465,8 +459,6 @@ function VerdictCard({ ai }: { ai: NonNullable<Analysis['aiAnalysis']> }) {
   )
 }
 
-// ─── App ──────────────────────────────────────────────────────────────────────
-
 export default function App() {
   const [currentUrl, setCurrentUrl] = useState('Loading...')
   const [backendStatus, setBackendStatus] = useState('Ready to scan')
@@ -476,24 +468,23 @@ export default function App() {
   const [error, setError] = useState('')
   const [hasScanned, setHasScanned] = useState<boolean>(DEV_PREVIEW)
 
-  const [lastScan, setLastScan] = useState<ScanRecord | null>(null)
+  const [currentSavedScan, setCurrentSavedScan] = useState<ScanRecord | null>(null)
+  const [previousSavedScan, setPreviousSavedScan] = useState<ScanRecord | null>(null)
   const [scanHistory, setScanHistory] = useState<ScanRecord[]>([])
+
+  const loadableLastScan = previousSavedScan ?? currentSavedScan
 
   useEffect(() => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       setCurrentUrl(tabs[0]?.url ?? 'No active tab found')
     })
 
-    loadLastScan().then((saved) => {
-      if (saved?.analysis) {
-        setLastScan(saved)
+    loadCurrentSavedScan().then((saved) => {
+      setCurrentSavedScan(saved)
+    })
 
-        if (!DEV_PREVIEW) {
-          setAnalysis(saved.analysis)
-          setHasScanned(true)
-          setBackendStatus('Loaded last saved scan')
-        }
-      }
+    loadPreviousSavedScan().then((saved) => {
+      setPreviousSavedScan(saved)
     })
 
     loadScanHistory().then((history) => {
@@ -506,19 +497,21 @@ export default function App() {
       const url = tabs[0]?.url ?? ''
       setCurrentUrl(url || 'No active tab found')
 
-      // ── Non-Amazon guard ───────────────────────────────────────────────
       const isAmazon = /amazon\.(com|co\.|ca|com\.au|de|fr|es|it|nl|pl|se|sg|ae)/i.test(url)
+
       if (!isAmazon) {
         const msg = url
-          ? "Navigate to an Amazon product page, then click Scan."
-          : "No active tab found. Open an Amazon product page first."
+          ? 'Navigate to an Amazon product page, then click Scan.'
+          : 'No active tab found. Open an Amazon product page first.'
         setError(msg)
         setBackendStatus(msg)
         return
       }
 
       if (!url) {
-        setError('No URL available to send.')
+        const msg = 'No URL available to send.'
+        setError(msg)
+        setBackendStatus(msg)
         return
       }
 
@@ -545,28 +538,43 @@ export default function App() {
 
         const nextAnalysis = data.analysis ?? null
 
+        if (!nextAnalysis) {
+          const msg = 'Scan completed, but no analysis was returned.'
+          setBackendStatus(msg)
+          setError(msg)
+          return
+        }
+
         setAnalysis(nextAnalysis)
         setBackendStatus('Analysis complete')
         setHasScanned(true)
+        setError('')
 
-        if (nextAnalysis) {
-          const record: ScanRecord = {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            scannedAt: new Date().toISOString(),
-            url,
-            analysis: nextAnalysis,
-          }
+        const oldCurrent = await loadCurrentSavedScan()
 
-          setLastScan(record)
-          saveLastScan(record)
-
-          saveScanToHistory(record)
-
-          setScanHistory((prev) => {
-            const next = [record, ...prev].slice(0, MAX_SCAN_HISTORY)
-            return next
-          })
+        const record: ScanRecord = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          scannedAt: new Date().toISOString(),
+          url,
+          analysis: nextAnalysis,
         }
+
+        await storageSet({
+          [CURRENT_SCAN_KEY]: record,
+          [PREVIOUS_SCAN_KEY]: oldCurrent,
+        })
+
+        setCurrentSavedScan(record)
+        setPreviousSavedScan(oldCurrent ?? null)
+
+        const existingHistory = (await loadScanHistory()) ?? []
+        const nextHistory = [record, ...existingHistory].slice(0, MAX_SCAN_HISTORY)
+
+        await storageSet({
+          [SCAN_HISTORY_KEY]: nextHistory,
+        })
+
+        setScanHistory(nextHistory)
       } catch {
         const msg = 'Scan failed. Is the server running?'
         setBackendStatus(msg)
@@ -577,13 +585,15 @@ export default function App() {
     })
   }
 
-  if (view === 'premium') return (
-    <main className="app-shell">
-      <div className="popup-shell">
-        <PremiumScreen onBack={() => setView('home')} />
-      </div>
-    </main>
-  )
+  if (view === 'premium') {
+    return (
+      <main className="app-shell">
+        <div className="popup-shell">
+          <PremiumScreen onBack={() => setView('home')} />
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="app-shell">
@@ -609,33 +619,49 @@ export default function App() {
             </button>
           </SectionCard>
 
-          {lastScan && !loading && (
-            <SectionCard title="Last Saved Scan" collapsible defaultOpen={false}>
-              <div className="saved-scan-box">
-                <p className="body-text"><strong>Product:</strong> {lastScan.analysis.title ?? 'Unknown product'}</p>
-                <p className="body-text"><strong>Saved:</strong> {new Date(lastScan.scannedAt).toLocaleString()}</p>
-                <p className="body-text"><strong>Score:</strong> {lastScan.analysis.overallScore ?? 'N/A'}</p>
-
-                <div className="saved-scan-actions">
-                  <button
-                    className="secondary-btn"
-                    onClick={() => {
-                      setAnalysis(lastScan.analysis)
-                      setHasScanned(true)
-                      setBackendStatus('Loaded saved scan')
-                      setError('')
-                    }}
-                  >
-                    Load Last Scan
-                  </button>
-                </div>
-              </div>
-            </SectionCard>
-          )}
-
-          {scanHistory.length > 0 && !loading && (
+          {(loadableLastScan || scanHistory.length > 0) && (
             <SectionCard title="Scan History" collapsible defaultOpen={false}>
               <div className="scan-history-list">
+                {loadableLastScan && (
+                  <div className="history-featured">
+                    <div className="history-featured-header">
+                      <p className="history-featured-label">LAST SAVED SCAN</p>
+                      <span className="history-score">{loadableLastScan.analysis.overallScore ?? '--'}</span>
+                    </div>
+
+                    <p className="history-item-title">
+                      {loadableLastScan.analysis.title ?? 'Untitled Product'}
+                    </p>
+
+                    <div className="info-list">
+                      <p><strong>Brand:</strong> {loadableLastScan.analysis.brand ?? 'N/A'}</p>
+                      <p><strong>Price:</strong> {loadableLastScan.analysis.price ?? 'N/A'}</p>
+                      <p><strong>Rating:</strong> {loadableLastScan.analysis.rating ?? 'N/A'}</p>
+                      <p><strong>Review Count:</strong> {loadableLastScan.analysis.reviewCount ?? 'N/A'}</p>
+                      <p><strong>Review Integrity:</strong> {loadableLastScan.analysis.reviewIntegrity?.score ?? 'N/A'}</p>
+                      <p><strong>Brand Reputation:</strong> {loadableLastScan.analysis.brandReputation?.score ?? 'N/A'}</p>
+                    </div>
+
+                    <p className="history-item-meta">
+                      Saved {new Date(loadableLastScan.scannedAt).toLocaleString()}
+                    </p>
+
+                    <div className="saved-scan-actions">
+                      <button
+                        className="secondary-btn"
+                        onClick={() => {
+                          setAnalysis(loadableLastScan.analysis)
+                          setHasScanned(true)
+                          setBackendStatus('Loaded last saved scan')
+                          setError('')
+                        }}
+                      >
+                        Load Last Scan
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {scanHistory.map((item) => (
                   <button
                     key={item.id}
@@ -662,12 +688,10 @@ export default function App() {
             </SectionCard>
           )}
 
-          {/* Show skeletons while a scan is in flight */}
           {loading && <SkeletonResults />}
 
-          {/* Show real results once loaded */}
           {!loading && hasScanned && analysis && (
-            <>
+            <div className="results-animate">
               <SectionCard title="Overall Score" collapsible>
                 <div className="score-row">
                   <span className="score-number">{analysis.overallScore ?? '--'}</span>
@@ -731,7 +755,7 @@ export default function App() {
                 <ScoreExplainer metric="brand_reputation" analysis={analysis} />
               </SectionCard>
 
-              <SectionCard title="Similar Products">
+              <SectionCard title="Similar Products" collapsible>
                 {(analysis.similarProducts?.length ?? 0) > 0 ? (
                   <div className="similar-scroll">
                     {analysis.similarProducts?.map((product, i) => {
@@ -781,7 +805,7 @@ export default function App() {
                   <p className="body-text muted">No similar products found.</p>
                 )}
               </SectionCard>
-            </>
+            </div>
           )}
         </div>
       </div>
