@@ -1,6 +1,6 @@
 
 
-https://github.com/user-attachments/assets/918e1d43-595f-416a-ab74-58bc6faf6994
+https://github.com/user-attachments/assets/503b7d96-bcd8-418d-aa47-0589f6e007b4
 
 
 Nectar is a product-analyzer Chrome extension that compares products and provides in-depth information on price points, review integrity, quality, brand reputation, and more, recommending the best option. Our mission is to reduce shoppers’ stress when buying products and provide a more educated shopping experience.
@@ -24,7 +24,7 @@ source .venv/bin/activate # Mac/Linux
 ```bash
 pip install -r requirements.txt
 ```
-## Create .env in ROOT directory and add keys from:
+## Create .env in ROOT directory and add keys
 https://www.canopyapi.co/  
 https://aistudio.google.com/app/api-keys  
 https://console.cloud.google.com/marketplace/product/google/places-backend.googleapis.com
