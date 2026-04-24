@@ -3,7 +3,7 @@
 https://github.com/user-attachments/assets/503b7d96-bcd8-418d-aa47-0589f6e007b4
 
 
-Nectar is a product-analyzer Chrome extension that compares products and provides in-depth information on price points, review integrity, quality, brand reputation, and more, recommending the best option. Our mission is to reduce shoppers’ stress when buying products and provide a more educated shopping experience.
+Nectar is a product-analyzer Chrome extension that compares products and provides in-depth insights on price, review integrity, quality, brand reputation, and similar alternatives. Nectar recommends the best option to help reduce shopper stress and support more informed purchasing decisions.
 
 ## Clone Repository:
 ```powershell
