@@ -51,7 +51,7 @@ npm run build
 
 ## Deploying Backend Server
 ### Use hosted backend (Recommended): 
-The backend is already deployed on Render -- no setup required.  
+The backend is already deployed on Render -- no setup required. (Check if VITE URL correct)
 ### Deploy locally (Optional)
 1. Set frontend/.env.production to:
 ```powershell
@@ -67,5 +67,5 @@ npm run build
 cd ..
 uvicorn backend.main:app --reload
 ```
-_____________________________________________________________________________________________________________________________________________________
+---
 Project led by Shivank Virdi and co-developed with Jaycob Pakingan, Iyanna Arches, Aanya Agarwal, & Kaylana Chaun. We hope you enjoy using our extension!
