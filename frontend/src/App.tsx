@@ -65,6 +65,8 @@ type Analysis = {
   }
 }
 
+type Recommendation = NonNullable<NonNullable<Analysis['aiAnalysis']>['recommendation']>
+
 type ScanRecord = {
   id: string
   scannedAt: string
@@ -83,6 +85,13 @@ function getNumericPrice(price?: string | number | null): number | null {
   const cleaned = String(price).replace(/[^0-9.]/g, '')
   const parsed = Number(cleaned)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function getScoreColor(score?: number): string {
+  if (score === undefined || score === null) return '#171717'
+  if (score >= 75) return '#15803d'   // green
+  if (score >= 50) return '#b45309'   // amber
+  return '#dc2626'                    // red
 }
 
 function formatPriceDifference(diff: number): string {
@@ -137,6 +146,25 @@ function getTagClassName(tag: 'BETTER' | 'SIMILAR' | 'WORSE') {
   if (tag === 'BETTER') return 'comparison-badge comparison-badge--better'
   if (tag === 'WORSE') return 'comparison-badge comparison-badge--worse'
   return 'comparison-badge comparison-badge--similar'
+}
+
+function getRecommendationClass(recommendation?: Recommendation) {
+  if (recommendation === 'BUY') return 'recommendation-chip recommendation-chip--buy'
+  if (recommendation === 'SKIP') return 'recommendation-chip recommendation-chip--skip'
+  return 'recommendation-chip recommendation-chip--compare'
+}
+
+function getSimilarProductsTitle(productKeyword?: string | null) {
+  if (!productKeyword || productKeyword === 'unknown') return 'Similar Products'
+  return `Similar Products`
+}
+
+function formatFlagLabel(flag: string) {
+  return flag
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function getBestAlternativeIndex(current: Analysis | null, products?: SimilarProduct[]) {
@@ -349,16 +377,18 @@ function SectionCard({
   children,
   collapsible = false,
   defaultOpen = true,
+  className = '',
 }: {
   title: string
   children: React.ReactNode
   collapsible?: boolean
   defaultOpen?: boolean
+  className?: string
 }) {
   const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <section className={`section-card ${open || !collapsible ? 'section-card--open' : 'section-card--closed'}`}>
+    <section className={`section-card ${className} ${open || !collapsible ? 'section-card--open' : 'section-card--closed'}`}>
       <div className="section-card-header">
         <h3>{title}</h3>
         {collapsible && (
@@ -449,35 +479,28 @@ function ScoreExplainer({
 
 function VerdictCard({ ai }: { ai: NonNullable<Analysis['aiAnalysis']> }) {
   const rec = ai.recommendation ?? 'COMPARE'
-  const colorMap = {
-    BUY: { bg: '#dcfce7', border: '#86efac', badge: '#16a34a' },
-    COMPARE: { bg: '#fef9c3', border: '#fde047', badge: '#ca8a04' },
-    SKIP: { bg: '#fee2e2', border: '#fca5a5', badge: '#dc2626' },
-  }
-  const c = colorMap[rec]
+  const panelClass = `verdict-card-panel verdict-card-panel--${rec.toLowerCase()}`
 
   return (
-    <section className="section-card results-animate">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>AI Analysis</h3>
-        <span style={{ background: c.badge, color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: '0.1em', padding: '4px 12px', borderRadius: 999 }}>
-          {rec}
-        </span>
+    <section className="section-card verdict-card results-animate">
+      <div className="verdict-card-header">
+        <h3 className="verdict-card-title">AI Analysis</h3>
       </div>
-      <p style={{ margin: '0 0 14px', fontSize: 13, color: '#444', lineHeight: 1.5, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 10, padding: '8px 12px' }}>
-        {ai.verdict}
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div>
-          <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#15803d', letterSpacing: '0.08em' }}>✦ PROS</p>
+      <div className={panelClass}>
+        <p className="verdict-panel-label">Overall Take</p>
+        <p className="verdict-summary">{ai.verdict}</p>
+      </div>
+      <div className="verdict-columns">
+        <div className="verdict-column verdict-column--pros">
+          <p className="verdict-list-label verdict-list-label--pros">PROS</p>
           {(ai.pros ?? []).map((pro, i) => (
-            <p key={i} style={{ margin: '0 0 5px', fontSize: 12, color: '#1e1e1e', lineHeight: 1.4, padding: '6px 8px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8 }}>{pro}</p>
+            <p key={i} className="verdict-pill verdict-pill--pros">{pro}</p>
           ))}
         </div>
-        <div>
-          <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#dc2626', letterSpacing: '0.08em' }}>✦ CONS</p>
+        <div className="verdict-column verdict-column--cons">
+          <p className="verdict-list-label verdict-list-label--cons">CONS</p>
           {(ai.cons ?? []).map((con, i) => (
-            <p key={i} style={{ margin: '0 0 5px', fontSize: 12, color: '#1e1e1e', lineHeight: 1.4, padding: '6px 8px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>{con}</p>
+            <p key={i} className="verdict-pill verdict-pill--cons">{con}</p>
           ))}
         </div>
       </div>
@@ -727,109 +750,117 @@ export default function App() {
     }, CLEAR_ALL_ENTRY_DELAY_MS)
   }
 
-  const scanHistorySection = scanHistory.length > 0 && (
-    <SectionCard title="Scan History" collapsible defaultOpen={false}>
-      <div className="scan-history-toolbar">
-        <p className="scan-history-count">
-          {scanHistory.length} saved {scanHistory.length === 1 ? 'scan' : 'scans'}
-        </p>
-        <button
-          type="button"
-          className="history-clear-btn"
-          onClick={handleClearScanHistory}
-          disabled={isClearingHistory}
-        >
-          {isClearingHistory ? 'Clearing…' : 'Clear All'}
-        </button>
-      </div>
-
-      <div className="scan-history-list">
-        {scanHistory.map((item) => {
-          const isSelected = selectedCompareIds.includes(item.id)
-
-          return (
-            <div
-              key={item.id}
-              className={`history-item history-item--selectable ${isSelected ? 'history-item--selected' : ''} ${deletingScanIds.includes(item.id) ? 'history-item--deleting' : ''}`}
+  const scanHistorySection = (
+    <SectionCard title="Scan History" collapsible defaultOpen={false} className="section-card--history">
+      {scanHistory.length > 0 ? (
+        <>
+          <div className="scan-history-toolbar">
+            <p className="scan-history-count">
+              {scanHistory.length} saved {scanHistory.length === 1 ? 'scan' : 'scans'}
+            </p>
+            <button
+              type="button"
+              className="history-clear-btn"
+              onClick={handleClearScanHistory}
+              disabled={isClearingHistory}
             >
+              {isClearingHistory ? 'Clearing…' : 'Clear All'}
+            </button>
+          </div>
+
+          <div className="scan-history-list">
+            {scanHistory.map((item) => {
+              const isSelected = selectedCompareIds.includes(item.id)
+
+              return (
+                <div
+                  key={item.id}
+                  className={`history-item history-item--selectable ${isSelected ? 'history-item--selected' : ''} ${deletingScanIds.includes(item.id) ? 'history-item--deleting' : ''}`}
+                >
+                  <button
+                    type="button"
+                    className="history-load-btn"
+                    onClick={() => {
+                      setAnalysis(item.analysis)
+                      setHasScanned(true)
+                      setBackendStatus('Loaded scan from history')
+                      setError('')
+                    }}
+                  >
+                    <div className="history-item-top">
+                      <p className="history-item-title">{item.analysis.title ?? 'Untitled Product'}</p>
+                      <span className="history-score">{item.analysis.overallScore ?? '--'}</span>
+                    </div>
+                    <div className="history-item-meta-row">
+                      <span className="history-item-meta history-item-meta--brand">{item.analysis.brand ?? 'Unknown brand'}</span>
+                      <span className="history-item-meta-separator" aria-hidden="true" />
+                      <span className="history-item-meta history-item-meta--time">{new Date(item.scannedAt).toLocaleString()}</span>
+                    </div>
+                  </button>
+
+                  <div className="history-item-actions">
+                    <button
+                      type="button"
+                      className={`why-score-btn history-compare-btn ${isSelected ? 'secondary-btn--active history-compare-btn--selected' : ''}`}
+                      onClick={() => toggleCompareSelection(item.id)}
+                      aria-pressed={isSelected}
+                      aria-label={isSelected ? 'Selected for Compare' : 'Select to Compare'}
+                    >
+                      <span
+                        className={`history-compare-btn-indicator ${isSelected ? 'history-compare-btn-indicator--selected' : ''}`}
+                        aria-hidden="true"
+                      />
+                      <span className="history-compare-btn-copy" aria-hidden="true">
+                        <span
+                          className={`history-compare-btn-text ${isSelected ? 'history-compare-btn-text--hidden' : 'history-compare-btn-text--visible'}`}
+                        >
+                          Select to Compare
+                        </span>
+                        <span
+                          className={`history-compare-btn-text history-compare-btn-text--selected ${isSelected ? 'history-compare-btn-text--visible' : 'history-compare-btn-text--hidden'}`}
+                        >
+                          Selected for Compare
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="history-delete-btn"
+                      aria-label={`Delete scan for ${item.analysis.title ?? 'product'}`}
+                      title="Delete this scan"
+                      onClick={() => handleDeleteScan(item.id)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {scanHistory.length >= 2 && (
+            <div className="compare-history-actions">
               <button
-                type="button"
-                className="history-load-btn"
+                className="scan-btn"
+                disabled={selectedCompareIds.length !== 2}
                 onClick={() => {
-                  setAnalysis(item.analysis)
-                  setHasScanned(true)
-                  setBackendStatus('Loaded scan from history')
-                  setError('')
+                  const selected = scanHistory.filter((item) => selectedCompareIds.includes(item.id))
+                  if (selected.length === 2) {
+                    setCompareRecords([selected[0], selected[1]])
+                    setView('compare')
+                    setSelectedCompareIds([])
+                  }
                 }}
               >
-                <div className="history-item-top">
-                  <p className="history-item-title">{item.analysis.title ?? 'Untitled Product'}</p>
-                  <span className="history-score">{item.analysis.overallScore ?? '--'}</span>
-                </div>
-                <p className="history-item-meta">
-                  {item.analysis.brand ?? 'Unknown brand'} · {new Date(item.scannedAt).toLocaleString()}
-                </p>
+                {selectedCompareIds.length === 2
+                  ? 'Compare Selected Products'
+                  : 'Select 2 Products to Compare'}
               </button>
-
-              <div className="history-item-actions">
-                <button
-                  type="button"
-                  className={`why-score-btn history-compare-btn ${isSelected ? 'secondary-btn--active history-compare-btn--selected' : ''}`}
-                  onClick={() => toggleCompareSelection(item.id)}
-                  aria-pressed={isSelected}
-                  aria-label={isSelected ? 'Selected for Compare' : 'Select to Compare'}
-                >
-                  <span
-                    className={`history-compare-btn-indicator ${isSelected ? 'history-compare-btn-indicator--selected' : ''}`}
-                    aria-hidden="true"
-                  />
-                  <span className="history-compare-btn-copy" aria-hidden="true">
-                    <span
-                      className={`history-compare-btn-text ${isSelected ? 'history-compare-btn-text--hidden' : 'history-compare-btn-text--visible'}`}
-                    >
-                      Select to Compare
-                    </span>
-                    <span
-                      className={`history-compare-btn-text history-compare-btn-text--selected ${isSelected ? 'history-compare-btn-text--visible' : 'history-compare-btn-text--hidden'}`}
-                    >
-                      Selected for Compare
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="history-delete-btn"
-                  aria-label={`Delete scan for ${item.analysis.title ?? 'product'}`}
-                  title="Delete this scan"
-                  onClick={() => handleDeleteScan(item.id)}
-                >
-                  ×
-                </button>
-              </div>
             </div>
-          )
-        })}
-      </div>
-
-      {scanHistory.length >= 2 && (
-        <div className="compare-history-actions">
-          <button
-            className="scan-btn"
-            disabled={selectedCompareIds.length !== 2}
-            onClick={() => {
-              const selected = scanHistory.filter((item) => selectedCompareIds.includes(item.id))
-              if (selected.length === 2) {
-                setCompareRecords([selected[0], selected[1]])
-                setView('compare')
-                setSelectedCompareIds([])
-              }
-            }}
-          >
-            {selectedCompareIds.length === 2
-              ? 'Compare Selected Products'
-              : 'Select 2 Products to Compare'}
-          </button>
-        </div>
+          )}
+        </>
+      ) : (
+        <div className="empty-state empty-state--compact">No saved scans yet.</div>
       )}
     </SectionCard>
   )
@@ -1022,11 +1053,11 @@ export default function App() {
 
         <div className="content" key="home-view">
           <div className="cascade-item cascade-delay-1">
-            <SectionCard title="Product Analysis">
-              <p className={`body-text ${error ? 'status-error' : 'status-ok'}`}>
+            <SectionCard title="Product Analysis" className="section-card--hero">
+              <p className={`body-text hero-status ${error ? 'status-error' : 'status-ok'}`}>
                 {error || backendStatus}
               </p>
-              <button className="scan-btn" onClick={handleScan} disabled={loading}>
+              <button className="scan-btn scan-btn--hero" onClick={handleScan} disabled={loading}>
                 {loading ? 'Scanning…' : 'Scan Product'}
               </button>
             </SectionCard>
@@ -1041,10 +1072,21 @@ export default function App() {
           {!loading && hasScanned && analysis && (
             <div className={`results-animate${isClearingCurrentView ? ' results-exit-waterfall' : ''}`}>
               <div className="cascade-item cascade-delay-1">
-                <SectionCard title="Overall Score" collapsible>
-                  <div className="score-row">
-                    <span className="score-number">{analysis.overallScore ?? '--'}</span>
-                    <span className="score-max">/100</span>
+                <SectionCard title="Overall Score" collapsible className="section-card--score">
+                  <div className="overall-score-stack">
+                    <div className="score-row score-row--hero">
+                      <span className="score-number score-number--hero" style={{ color: getScoreColor(analysis.overallScore) }}>
+                        {analysis.overallScore ?? '--'}
+                      </span>
+                      <span className="score-max">/100</span>
+                    </div>
+                    {analysis.aiAnalysis?.recommendation && (
+                      <div className="overall-score-chip-row">
+                        <span className={getRecommendationClass(analysis.aiAnalysis.recommendation)}>
+                          {analysis.aiAnalysis.recommendation}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <MetricBar label="Trust Score" value={analysis.overallScore} />
                 </SectionCard>
@@ -1069,12 +1111,23 @@ export default function App() {
               )}
 
               <div className="cascade-item cascade-delay-4">
-                <SectionCard title="Review Integrity" collapsible>
-                  <div className="mini-score">
-                    <span>Score</span>
-                    <strong>{analysis.reviewIntegrity?.score ?? 'N/A'}</strong>
+                <SectionCard title="Review Integrity" collapsible className="section-card--integrity">
+                  <div className="integrity-lead">
+                    <div className="mini-score mini-score--featured">
+                      <span>Score</span>
+                      <strong>{analysis.reviewIntegrity?.score ?? 'N/A'}</strong>
+                    </div>
+                    <MetricBar label="Review Integrity" value={analysis.reviewIntegrity?.score} />
                   </div>
-                  <MetricBar label="Review Integrity" value={analysis.reviewIntegrity?.score} />
+                  {Object.entries(analysis.reviewIntegrity?.flags ?? {}).some(([, active]) => active) && (
+                    <div className="integrity-flags">
+                      {Object.entries(analysis.reviewIntegrity?.flags ?? {})
+                        .filter(([, active]) => active)
+                        .map(([flag]) => (
+                          <span key={flag} className="integrity-flag">{formatFlagLabel(flag)}</span>
+                        ))}
+                    </div>
+                  )}
                   <div className="info-list">
                     <p><strong>Label:</strong> {analysis.reviewIntegrity?.label ?? 'N/A'}</p>
                     <p><strong>Verified Purchase Ratio:</strong> {analysis.reviewIntegrity?.verifiedPurchaseRatio ?? 'N/A'}</p>
@@ -1087,12 +1140,14 @@ export default function App() {
               </div>
 
               <div className="cascade-item cascade-delay-5">
-                <SectionCard title="Brand Reputation" collapsible>
-                  <div className="mini-score">
-                    <span>Score</span>
-                    <strong>{analysis.brandReputation?.score ?? 'N/A'}</strong>
+                <SectionCard title="Brand Reputation" collapsible className="section-card--brand">
+                  <div className="brand-lead">
+                    <div className="mini-score mini-score--featured">
+                      <span>Score</span>
+                      <strong>{analysis.brandReputation?.score ?? 'N/A'}</strong>
+                    </div>
+                    <MetricBar label="Brand Reputation" value={analysis.brandReputation?.score} />
                   </div>
-                  <MetricBar label="Brand Reputation" value={analysis.brandReputation?.score} />
                   <div className="info-list">
                     <p><strong>Label:</strong> {analysis.brandReputation?.label ?? 'N/A'}</p>
                     <p><strong>Reviews Analyzed:</strong> {analysis.brandReputation?.reviewsAnalyzed ?? 'N/A'}</p>
@@ -1116,7 +1171,11 @@ export default function App() {
               </div>
 
               <div className="cascade-item cascade-delay-6">
-                <SectionCard title="Similar Products" collapsible>
+                <SectionCard
+                  title={getSimilarProductsTitle(analysis.productKeyword)}
+                  collapsible
+                  className="section-card--similar"
+                >
                   {(analysis.similarProducts?.length ?? 0) > 0 ? (
                     <div className="similar-scroll">
                       {(() => {
@@ -1162,7 +1221,12 @@ export default function App() {
                       })()}
                     </div>
                   ) : (
-                    <p className="body-text muted">No similar products found.</p>
+                    <p className="body-text muted empty-state empty-state--compact">
+                      No alternatives found
+                      {analysis.productKeyword && analysis.productKeyword !== 'unknown'
+                        ? ` for ${analysis.productKeyword}`
+                        : ''}.
+                    </p>
                   )}
                 </SectionCard>
               </div>
