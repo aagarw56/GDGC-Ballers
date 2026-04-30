@@ -385,6 +385,17 @@ function MetricBar({ label, value }: { label: string; value?: number }) {
   )
 }
 
+function ScoreTrack({ value }: { value?: number }) {
+  const safeValue = Math.max(0, Math.min(100, value ?? 0))
+  return (
+    <div className="score-track" aria-label={`Score ${safeValue} out of 100`}>
+      <div className="metric-track">
+        <div className="metric-fill" style={{ width: `${safeValue}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function SectionCard({
   title,
   children,
@@ -1351,7 +1362,7 @@ export default function App() {
                       <span>Score</span>
                       <strong>{analysis.reviewIntegrity?.score ?? 'N/A'}</strong>
                     </div>
-                    <MetricBar label="Review Integrity" value={analysis.reviewIntegrity?.score} />
+                    <ScoreTrack value={analysis.reviewIntegrity?.score} />
                   </div>
                   {Object.entries(analysis.reviewIntegrity?.flags ?? {}).some(([, active]) => active) && (
                     <div className="integrity-flags">
@@ -1380,7 +1391,7 @@ export default function App() {
                       <span>Score</span>
                       <strong>{analysis.brandReputation?.score ?? 'N/A'}</strong>
                     </div>
-                    <MetricBar label="Brand Reputation" value={analysis.brandReputation?.score} />
+                    <ScoreTrack value={analysis.brandReputation?.score} />
                   </div>
                   <div className="info-list">
                     <p><strong>Label:</strong> {analysis.brandReputation?.label ?? 'N/A'}</p>

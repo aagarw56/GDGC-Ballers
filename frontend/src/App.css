@@ -498,6 +498,10 @@ h6,
   transition: width 0.6s var(--motion-smooth);
 }
 
+.score-track {
+  display: block;
+}
+
 /* ── Typography helpers ────────────────────────────────────────────────── */
 .body-text {
   margin: 0;
@@ -573,8 +577,8 @@ h6,
 .integrity-lead,
 .brand-lead {
   display: grid;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 9px;
+  margin-bottom: 8px;
 }
 
 .integrity-flags {
